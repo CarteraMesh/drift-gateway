@@ -20,10 +20,16 @@ on:
 
 jobs:
   format-build-test:
-    runs-on: ubicloud
+    runs-on: ${{ vars.RUNNER }}
     timeout-minutes: 15
     env:
-        CARGO_DRIFT_FFI_PATH: /usr/lib
+      CARGO_DRIFT_FFI_PATH: /usr/lib
+    strategy:
+      fail-fast: false
+      matrix:
+        features:
+          - "default"
+          - "fireblocks"
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -42,7 +48,7 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.features }}
       - name: install latest libdrift_ffi_sys
         run: |
           # NB: this will break historic CI jobs (if breaking program changes happen)
@@ -51,19 +57,46 @@ jobs:
           echo "downloading libdrift: $SO_URL"
           curl -L -o libdrift_ffi_sys.so "$SO_URL"
           sudo cp libdrift_ffi_sys.so $CARGO_DRIFT_FFI_PATH
-      - name: Build
+      - name: Build {{ matrix.features }}
+        if: ${{ matrix.features == 'default' }}
         run: |
           cargo -V
           cargo check
-      - name: Test
+      - name: Build ${{ matrix.features }}
+        if: ${{ matrix.features == 'fireblocks' }}
+        run: |
+          cargo check --features fireblocks
+      - name: Test ${{ matrix.features }}
+        if: ${{ matrix.features == 'default' }}
         env:
-          DRIFT_GATEWAY_KEY: ${{ secrets.DRIFT_GATEWAY_KEY }}
+          DRIFT_GATEWAY_KEY: ${{ secrets.TEST_PRIVATE_KEY }}
           TEST_DELEGATED_SIGNER: ${{ secrets.TEST_DELEGATED_SIGNER }}
           TEST_RPC_ENDPOINT: ${{ secrets.DEVNET_RPC_ENDPOINT }}
           TEST_MAINNET_RPC_ENDPOINT: ${{ secrets.MAINNET_RPC_ENDPOINT }}
-
         # --test-threads, limit parallelism to prevent hitting RPC rate-limits
         run: |
           cargo -V
           cp libdrift_ffi_sys.so ./target/debug/deps
-          cargo test --all -- --test-threads=2
+          cargo test --all --features mainnet -- --test-threads=2
+
+      - name: Test ${{ matrix.features }}
+        if: ${{ matrix.features == 'fireblocks' }}
+        env:
+          DRIFT_GATEWAY_KEY: ${{ secrets.TEST_PRIVATE_KEY }}
+          TEST_DELEGATED_SIGNER: ${{ secrets.TEST_DELEGATED_SIGNER }}
+          TEST_RPC_ENDPOINT: ${{ secrets.DEVNET_RPC_ENDPOINT }}
+          TEST_MAINNET_RPC_ENDPOINT: ${{ secrets.MAINNET_RPC_ENDPOINT }}
+          RUST_LOG: info,fireblocks_solana_signer=debug
+          RPC_URL: ${{ secrets.DEVNET_RPC_ENDPOINT }}
+          FIREBLOCKS_SECRET: ${{ secrets.FIREBLOCKS_SECRET }}
+          FIREBLOCKS_API_KEY: ${{ secrets.FIREBLOCKS_API_KEY }}
+          FIREBLOCKS_ENDPOINT: ${{ vars.FIREBLOCKS_ENDPOINT }}
+          FIREBLOCKS_POLL_TIMEOUT: ${{ vars.FIREBLOCKS_POLL_TIMEOUT }}
+          FIREBLOCKS_POLL_INTERVAL: ${{ vars.FIREBLOCKS_POLL_INTERVAL }}
+          FIREBLOCKS_DEVNET: "true"
+          FIREBLOCKS_VAULT: ${{ vars.FIREBLOCKS_VAULT }}
+        # --test-threads, limit parallelism to prevent hitting RPC rate-limits
+        run: |
+          cargo -V
+          cp libdrift_ffi_sys.so ./target/debug/deps
+          cargo test --all --features fireblocks  -- --test-threads=2

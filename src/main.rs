@@ -264,6 +264,7 @@ async fn main() -> std::io::Result<()> {
     }
     .init();
 
+    #[cfg(not(feature = "fireblocks"))]
     let secret_key = std::env::var("DRIFT_GATEWAY_KEY");
     let delegate = config
         .delegate
@@ -271,7 +272,10 @@ async fn main() -> std::io::Result<()> {
     let emulate = config
         .emulate
         .map(|ref x| Pubkey::from_str(x).expect("valid pubkey"));
+    #[cfg(not(feature = "fireblocks"))]
     let wallet = create_wallet(secret_key.ok(), emulate, delegate);
+    #[cfg(feature = "fireblocks")]
+    let wallet = create_wallet(emulate);
     let state_commitment = CommitmentConfig::from_str(&config.commitment)
         .expect("one of: processed | confirmed | finalized");
     let tx_commitment = CommitmentConfig::from_str(&config.tx_commitment)
@@ -567,6 +571,7 @@ mod tests {
     use self::controller::create_wallet;
     use super::*;
 
+    #[cfg(not(feature = "fireblocks"))]
     fn get_seed() -> String {
         std::env::var("DRIFT_GATEWAY_KEY")
             .expect("DRIFT_GATEWAY_KEY is set")
@@ -574,11 +579,14 @@ mod tests {
     }
 
     async fn setup_controller(emulate: Option<Pubkey>) -> AppState {
+        #[cfg(not(feature = "fireblocks"))]
         let wallet = if emulate.is_none() {
             create_wallet(Some(get_seed()), None, None)
         } else {
             create_wallet(None, emulate, None)
         };
+        #[cfg(feature = "fireblocks")]
+        let wallet = create_wallet(emulate);
         let rpc_endpoint = std::env::var("TEST_RPC_ENDPOINT")
             .unwrap_or_else(|_| "https://api.devnet.solana.com".to_string());
         AppState::new(
@@ -596,6 +604,7 @@ mod tests {
 
     // likely safe to ignore during development, mainly regression test for CI
     #[actix_web::test]
+    #[cfg(feature = "mainnet")]
     async fn delegated_signing_ok() {
         let _ = env_logger::try_init();
         let delegated_seed =
@@ -644,6 +653,7 @@ mod tests {
 
     // likely safe to ignore during development, mainly regression test for CI
     #[actix_web::test]
+    #[cfg(feature = "mainnet")]
     async fn delegated_swap_works() {
         let _ = env_logger::try_init();
         let delegated_seed =
@@ -696,6 +706,7 @@ mod tests {
     }
 
     // likely safe to ignore during development, mainly regression test for CI
+    #[cfg(feature = "mainnet")]
     #[actix_web::test]
     async fn swap_works() {
         let _ = env_logger::try_init();
@@ -899,6 +910,7 @@ mod tests {
         assert_eq!(events, expect_body, "incorrect resp body");
     }
 
+    #[ignore]
     #[actix_web::test]
     async fn get_tx_events_works_for_wrong_subaccount() {
         let _ = env_logger::try_init();

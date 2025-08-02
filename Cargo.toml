@@ -3,10 +3,16 @@ name = "drift-gateway"
 version = "1.5.3"
 edition = "2021"
 
+[features]
+default = []
+fireblocks = ["fireblocks-solana-signer", "drift-rs/fireblocks"]
+mainnet = []
+
 [dependencies]
 actix-web = "*"
 argh = "*"
-drift-rs = { git = "https://github.com/drift-labs/drift-rs", rev = "c6a3647" }
+drift-rs = { git = "https://github.com/CarteraMesh/drift-rs", branch = "fireblocks" }
+fireblocks-solana-signer = { version = "1", optional = true }
 base64 = "0.22.1"
 env_logger = "*"
 faster-hex = "0.10.0"
@@ -23,7 +29,7 @@ solana-rpc-client-api = "2"
 solana-sdk = "2"
 solana-transaction-status = "2"
 thiserror = "*"
-tokio = {version ="*", features = ["full"]}
+tokio = { version = "*", features = ["full"] }
 tokio-tungstenite = "*"
 
 [profile.release]
