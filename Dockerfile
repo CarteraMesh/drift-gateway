@@ -1,4 +1,4 @@
-FROM rust:1.84.1 AS builder
+FROM rust:1 AS builder
 
 RUN apt-get update && apt-get install -y libgcc1 jq
 WORKDIR /build
@@ -10,7 +10,7 @@ RUN SO_URL=$(curl -s https://api.github.com/repos/drift-labs/drift-ffi-sys/relea
 COPY  . .
 # DEV: choose to build drift system libs from source or not
 # a) default: use prebuilt lib (faster build time)
-RUN CARGO_DRIFT_FFI_PATH="/usr/local/lib" cargo build --release
+RUN CARGO_DRIFT_FFI_PATH="/usr/local/lib" cargo build --release --features fireblocks
 # b) build libdrift_ffi from source (slower build time)
 # RUN rustup install 1.76.0-x86_64-unknown-linux-gnu
 # RUN CARGO_DRIFT_FFI_STATIC=1 cargo build --release

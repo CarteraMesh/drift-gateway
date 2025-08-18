@@ -864,6 +864,7 @@ impl AppState {
                         OptionSerializer::Some(logs) => {
                             let sub_account = self.resolve_sub_account(ctx.sub_account_id);
                             for (tx_idx, log) in logs.iter().enumerate() {
+                                dbg!(log);
                                 if let Some(evt) = try_parse_log(log.as_str(), tx_sig, tx_idx) {
                                     let (_, gw_event) = map_drift_event_for_account(
                                         self.client.program_data(),
@@ -1136,11 +1137,23 @@ fn build_modify_ix<'a>(
     }
 }
 
+#[cfg(feature = "fireblocks")]
+pub fn create_wallet(emulate: Option<Pubkey>) -> Wallet {
+    match emulate {
+        Some(a) => Wallet::read_only(a),
+        None => match fireblocks_solana_signer::FireblocksSigner::try_from_env(None) {
+            Ok(s) => Wallet::new(s),
+            Err(e) => panic!("failed to init fireblocks signer. Check the FIREBLOCKS_* env. {e}"),
+        },
+    }
+}
+
 /// Initialize a wallet for controller, possible valid configs:
 ///
 /// 1) keypair
 /// 2) keypair + delegated
 /// 3) emulation/RO mode
+#[cfg(not(feature = "fireblocks"))]
 pub fn create_wallet(
     secret_key: Option<String>,
     emulate: Option<Pubkey>,
